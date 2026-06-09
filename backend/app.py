@@ -130,62 +130,214 @@ def upload_pdf():
 @app.route('/api/generate-quiz', methods=['POST'])
 def generate_quiz():
     """Generate quiz from uploaded PDF"""
-    data = request.json
+    import traceback
+    import random
+
+    # Safely parse JSON body
+    data = request.get_json(silent=True)
+    if data is None:
+        try:
+            raw = request.data.decode('utf-8') if request.data else ''
+            data = json.loads(raw) if raw else None
+        except Exception as e:
+            print('Failed to parse JSON body:', repr(request.data), e)
+            data = None
+
+    if not data:
+        return jsonify({'error': 'Invalid or missing JSON body'}), 400
+
+    # Log incoming request
+    try:
+        print('generate_quiz called. headers=', dict(request.headers))
+        print('generate_quiz payload=', json.dumps(data, ensure_ascii=False))
+    except Exception:
+        print('generate_quiz: could not serialize incoming payload for logging')
+
     source_id = data.get('source_id')
     user_id = request.headers.get('X-User-Id')
     difficulty = data.get('difficulty', 'standard')
-    num_questions = min(data.get('num_questions', 5), 20)
+    try:
+        num_questions = min(int(data.get('num_questions', 5)), 30)
+    except Exception:
+        num_questions = 5
     topic_focus = data.get('topic_focus', '')
-    
+
     if not source_id or not user_id:
         return jsonify({'error': 'Source ID and User ID required'}), 400
-    
-    # Get chunks from Supabase
-    chunks_data = supabase_service.get_chunks(source_id)
-    
-    if not chunks_data:
-        return jsonify({'error': 'No chunks found for this source'}), 404
-    
-    chunks = [c['content'] for c in chunks_data]
-    
-    # Select chunks based on topic focus
-    if topic_focus and len(chunks) > num_questions:
-        import random
-        selected_chunks = random.sample(chunks, min(num_questions, len(chunks)))
-    else:
-        selected_chunks = chunks[:num_questions]
-    
-    # Generate questions
-    questions = []
-    for chunk in selected_chunks:
-        question = llm_service.generate_question(chunk, difficulty, topic_focus)
-        if question:
-            questions.append(question)
-        
-        if len(questions) >= num_questions:
-            break
-    
-    if not questions:
-        return jsonify({'error': 'Failed to generate questions'}), 500
-    
-    # Save quiz to Supabase
-    quiz_data = {
-        'source_id': source_id,
-        'user_id': user_id,
-        'difficulty': difficulty,
-        'topic_focus': topic_focus,
-        'questions': questions,
-        'total_questions': len(questions)
-    }
-    
-    quiz = supabase_service.create_quiz(quiz_data)
-    
-    return jsonify({
-        'quiz_id': quiz['id'] if quiz else None,
-        'questions': questions,
-        'total': len(questions)
-    })
 
+    try:
+        # Get chunks from Supabase
+        chunks_data = supabase_service.get_chunks(source_id)
+        print(f'Fetched {len(chunks_data) if chunks_data else 0} chunks from Supabase for source_id={source_id}')
+        
+        if chunks_data and len(chunks_data) > 0:
+            try:
+                sample = chunks_data[:2]
+                print('chunks sample:', sample)
+            except Exception:
+                print('chunks_data present but could not print sample')
+
+        if not chunks_data:
+            return jsonify({'error': 'No chunks found for this source'}), 404
+
+        chunks = [c.get('content') for c in chunks_data if c.get('content')]
+        
+        print(f"📊 TOTAL CHUNKS AVAILABLE = {len(chunks)}")
+        print(f"📊 REQUESTED QUESTIONS = {num_questions}")
+
+        # Calculate optimal questions per chunk
+        if len(chunks) >= num_questions:
+            # More chunks than questions: select diverse chunks
+            selected_chunks = random.sample(chunks, min(num_questions, len(chunks)))
+            questions_per_chunk = 1
+            use_batch_generation = False  # 1 question per chunk is fine
+        else:
+            # Fewer chunks than questions: use batch generation
+            selected_chunks = random.sample(chunks, len(chunks))
+            questions_per_chunk = max(2, (num_questions // len(chunks)) + 1)
+            use_batch_generation = True  # Multiple questions per chunk
+        
+        print(f"📊 Selected {len(selected_chunks)} chunks")
+        if use_batch_generation:
+            print(f"📊 Using batch generation: {questions_per_chunk} questions per chunk")
+
+        # Track generated questions
+        existing_questions_text = []
+        questions = []
+        
+        # Shuffle chunks for variety
+        random.shuffle(selected_chunks)
+        
+        for idx, chunk in enumerate(selected_chunks):
+            if len(questions) >= num_questions:
+                break
+                
+            try:
+                # Ensure chunk is a string
+                if not isinstance(chunk, str):
+                    try:
+                        chunk = str(chunk)
+                    except Exception:
+                        print(f'Skipping non-string chunk at index {idx}')
+                        continue
+                
+                remaining = num_questions - len(questions)
+                
+                if use_batch_generation:
+                    # Generate multiple questions in one API call
+                    batch_size = min(questions_per_chunk, remaining)
+                    print(f"  Generating {batch_size} questions from chunk {idx + 1}/{len(selected_chunks)}...")
+                    
+                    batch_questions = llm_service.generate_questions(
+                        chunk,
+                        difficulty,
+                        count=batch_size,
+                        topic_hint=topic_focus,
+                        existing_questions=existing_questions_text
+                    )
+                    
+                    if batch_questions:
+                        for q in batch_questions:
+                            if len(questions) >= num_questions:
+                                break
+                            questions.append(q)
+                            existing_questions_text.append(q['question'])
+                        
+                        print(f"  ✅ Added {len(batch_questions)} questions from batch (total: {len(questions)})")
+                    else:
+                        print(f"  ⚠️ Batch generation failed for chunk {idx + 1}, falling back to single generation")
+                        # Fallback: generate one at a time
+                        for _ in range(batch_size):
+                            if len(questions) >= num_questions:
+                                break
+                            question = llm_service.generate_question(
+                                chunk, difficulty, topic_focus,
+                                existing_questions=existing_questions_text
+                            )
+                            if question:
+                                questions.append(question)
+                                existing_questions_text.append(question['question'])
+                else:
+                    # Generate single question per chunk
+                    print(f"  Generating question {len(questions) + 1}/{num_questions} from chunk {idx + 1}/{len(selected_chunks)}")
+                    
+                    question = llm_service.generate_question(
+                        chunk, 
+                        difficulty, 
+                        topic_focus,
+                        existing_questions=existing_questions_text
+                    )
+                    
+                    if question:
+                        questions.append(question)
+                        existing_questions_text.append(question['question'])
+                        print(f"  ✅ Question {len(questions)}: {question['question'][:80]}...")
+                    else:
+                        print(f"  ⚠️ Failed to generate question from chunk {idx + 1}")
+                        
+            except Exception as e:
+                print(f'Error generating question for chunk index {idx}: {e}')
+                import traceback as _tb
+                _tb.print_exc()
+
+        print(f"✅ Generated {len(questions)}/{num_questions} questions")
+
+        if not questions:
+            return jsonify({'error': 'Failed to generate questions (LLM returned none)'}), 500
+
+        # If still short, try filling remaining with single questions from random chunks
+        if len(questions) < num_questions:
+            print(f"⚠️ Only got {len(questions)}/{num_questions} questions, filling remaining...")
+            remaining = num_questions - len(questions)
+            
+            for attempt in range(remaining * 3):
+                if len(questions) >= num_questions:
+                    break
+                    
+                try:
+                    chunk = random.choice(chunks)
+                    if not isinstance(chunk, str):
+                        chunk = str(chunk)
+                    
+                    print(f"  Retry {attempt + 1}: generating additional question...")
+                    question = llm_service.generate_question(
+                        chunk,
+                        difficulty,
+                        topic_focus,
+                        existing_questions=existing_questions_text
+                    )
+                    
+                    if question:
+                        questions.append(question)
+                        existing_questions_text.append(question['question'])
+                        print(f"  ✅ Additional question {len(questions)}: {question['question'][:80]}...")
+                        
+                except Exception as e:
+                    print(f'Error in retry {attempt + 1}: {e}')
+
+        print(f"📊 Final question count: {len(questions)}/{num_questions}")
+
+        # Save quiz to Supabase
+        quiz_data = {
+            'source_id': source_id,
+            'user_id': user_id,
+            'difficulty': difficulty,
+            'topic_focus': topic_focus,
+            'questions': questions,
+            'total_questions': len(questions)
+        }
+
+        quiz = supabase_service.create_quiz(quiz_data)
+
+        return jsonify({
+            'quiz_id': quiz['id'] if quiz else None,
+            'questions': questions,
+            'total': len(questions)
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error', 'detail': str(e)}), 500
+        
 @app.route('/api/submit-quiz', methods=['POST'])
 def submit_quiz():
     """Submit quiz answers and save results"""

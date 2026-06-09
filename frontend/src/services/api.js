@@ -19,6 +19,7 @@ api.interceptors.request.use(async (config) => {
   return config
 })
 
+
 export const uploadPDF = async (file) => {
   const formData = new FormData()
   formData.append('file', file)

@@ -1,4 +1,3 @@
-// frontend/src/components/Quiz.jsx
 import React, { useState } from 'react'
 
 const Quiz = ({ questions, onComplete }) => {
@@ -20,61 +19,51 @@ const Quiz = ({ questions, onComplete }) => {
     onComplete(answers, questions)
   }
 
-  if (submitted) {
-    return null // Results will be shown by parent component
-  }
+  if (submitted) return null
+
+  const answered = Object.keys(answers).length
+  const progress = (answered / questions.length) * 100
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-gray-800 rounded-lg p-6 mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Quiz</h2>
-        <p className="text-gray-400">Select an answer for each question. Click Submit when done.</p>
-        <p className="text-purple-400 mt-2">Answered: {Object.keys(answers).length} / {questions.length}</p>
+    <div className="anim-fade-up">
+      <div className="card sticky-progress" style={{marginBottom:12}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <h2 style={{fontWeight:700,fontSize:20}}>Quiz</h2>
+          <div style={{padding:'6px 10px',borderRadius:999,background:'rgba(124,58,237,0.12)',border:'1px solid rgba(124,58,237,0.24)',color:'var(--accent-purple)',fontWeight:700}}>{answered} / {questions.length}</div>
+        </div>
+        <div style={{height:6,background:'rgba(255,255,255,0.03)',borderRadius:999,overflow:'hidden'}}>
+          <div style={{height:'100%',background:'linear-gradient(90deg,var(--accent-purple),var(--accent-cyan))',width:`${progress}%`,transition:'width 0.4s ease'}} />
+        </div>
       </div>
 
-      {questions.map((q, idx) => (
-        <div key={idx} className="bg-gray-800 rounded-lg p-6 mb-4">
-          <div className="mb-4">
-            <span className="text-purple-400 text-sm font-semibold">
-              Question {idx + 1} of {questions.length}
-            </span>
-            <h3 className="text-white text-lg mt-1">{q.question}</h3>
-          </div>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        {questions.map((q, idx) => (
+          <div key={idx} className="question-card">
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--accent-purple)',marginBottom:6}}>Q{idx+1}</div>
+              <div style={{fontWeight:700,fontSize:16,color: 'var(--text-primary)'}}>{q.question}</div>
+            </div>
 
-          <div className="space-y-3">
-            {Object.entries(q.options).map(([key, value]) => (
-              <label
-                key={key}
-                className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
-                  answers[idx] === key
-                    ? 'bg-purple-600/20 border-2 border-purple-500'
-                    : 'bg-gray-700/50 border-2 border-transparent hover:bg-gray-700'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name={`q${idx}`}
-                  value={key}
-                  checked={answers[idx] === key}
-                  onChange={() => handleAnswer(idx, key)}
-                  className="w-4 h-4 text-purple-600 focus:ring-purple-500 mr-3"
-                />
-                <span className="text-gray-200">
-                  <span className="font-semibold mr-2">{key}.</span>
-                  {value}
-                </span>
-              </label>
-            ))}
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {Object.entries(q.options).map(([key,value])=>{
+                const selected = answers[idx] === key
+                return (
+                  <div key={key} className={`option ${selected? 'selected':''}`} onClick={()=>handleAnswer(idx,key)}>
+                    <div style={{width:18,height:18,borderRadius:999,flexShrink:0,background:selected? 'var(--accent-purple)':'transparent',border:`2px solid ${selected? 'var(--accent-purple)':'rgba(255,255,255,0.06)'}`}} />
+                    <div style={{color:selected? 'var(--text-primary)':'var(--text-secondary)'}}><strong style={{marginRight:8,color:selected? 'var(--accent-purple)':'var(--text-secondary)'}}>{key}.</strong>{value}</div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
-      <button
-        onClick={handleSubmit}
-        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-      >
-        Submit Quiz
-      </button>
+      <div style={{marginTop:12}}>
+        <button onClick={handleSubmit} className="btn btn-primary" style={{width:'100%'}}>
+          {answered < questions.length ? `Answer all questions (${questions.length - answered} remaining)` : '✅ Submit Quiz'}
+        </button>
+      </div>
     </div>
   )
 }
