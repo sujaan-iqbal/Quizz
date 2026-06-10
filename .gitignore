@@ -14,7 +14,7 @@ build/
 # Env files
 .env
 .env.*
-D:\QUI\Quizz\backend\.env
+
 # OS files
 .DS_Store
 Thumbs.db
