@@ -17,7 +17,13 @@ from groq_service import GroqService
 
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app, origins=["http://localhost:3000", "http://localhost:5173", "https://*.vercel.app"])
+
+# Enhanced CORS configuration
+CORS(app, 
+     origins=["http://localhost", "http://localhost:80", "http://localhost:5173", "http://localhost:3000"],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "X-User-Id", "Authorization", "Accept"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # Initialize services
 pdf_processor = PDFProcessor()
@@ -36,8 +42,10 @@ DIFFICULTY_MAP = {
 # ------------------------------------------------------------------
 # HEALTH CHECK
 # ------------------------------------------------------------------
-@app.route("/api/health", methods=["GET"])
+@app.route("/api/health", methods=["GET", "OPTIONS"])
 def health():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
     return jsonify({
         "status": "healthy",
         "service": "pdf-quiz-backend",
@@ -47,13 +55,18 @@ def health():
 # ------------------------------------------------------------------
 # UPLOAD
 # ------------------------------------------------------------------
-@app.route("/api/upload", methods=["POST"])
+@app.route("/api/upload", methods=["POST", "OPTIONS"])
 def upload_pdf():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+    
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
     user_id = request.headers.get("X-User-Id")
+
+    print(f"📥 Upload request - User ID: {user_id}, File: {file.filename if file else 'None'}")
 
     if not user_id:
         return jsonify({"error": "User ID required"}), 401
@@ -137,8 +150,11 @@ def upload_pdf():
 # ------------------------------------------------------------------
 # GENERATE QUIZ
 # ------------------------------------------------------------------
-@app.route("/api/generate-quiz", methods=["POST"])
+@app.route("/api/generate-quiz", methods=["POST", "OPTIONS"])
 def generate_quiz():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+    
     data = request.get_json(silent=True)
     if data is None:
         try:
@@ -245,8 +261,11 @@ def _generate_deep_dive(chunks: list, num_questions: int, source_id: str, topic_
 # ------------------------------------------------------------------
 # SUBMIT QUIZ
 # ------------------------------------------------------------------
-@app.route("/api/submit-quiz", methods=["POST"])
+@app.route("/api/submit-quiz", methods=["POST", "OPTIONS"])
 def submit_quiz():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+    
     data = request.json
     quiz_id   = data.get("quiz_id")
     user_id   = request.headers.get("X-User-Id")
@@ -279,8 +298,11 @@ def submit_quiz():
 # ------------------------------------------------------------------
 # USER QUIZ HISTORY
 # ------------------------------------------------------------------
-@app.route("/api/user/quizzes", methods=["GET"])
+@app.route("/api/user/quizzes", methods=["GET", "OPTIONS"])
 def get_user_quizzes():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+    
     user_id = request.headers.get("X-User-Id")
     if not user_id:
         return jsonify({"error": "User ID required"}), 401
@@ -293,6 +315,15 @@ def root():
         "message": "PDF Quiz API is running",
         "endpoints": ["/api/health", "/api/upload", "/api/generate-quiz", "/api/submit-quiz"],
     })
+
+def _build_cors_preflight_response():
+    """Build CORS preflight response"""
+    response = jsonify({"message": "CORS preflight"})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type, X-User-Id, Authorization, Accept")
+    response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response, 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

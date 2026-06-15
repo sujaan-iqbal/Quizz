@@ -3,8 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    port: 5173,
-    strictPort: false
+  server: { port: 5173, strictPort: false },
+  define: {
+    // Make backend URL available in your React code
+    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'http://localhost:5000')
   }
 })

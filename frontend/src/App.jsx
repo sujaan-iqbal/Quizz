@@ -126,7 +126,7 @@ function App() {
           gap: '12px'
         }}
       >
-        <div style={{ fontSize: '24px' }}>📚</div>
+        {/* <div style={{ fontSize: '24px' }}>📚</div> */}
 
         <div
           style={{
