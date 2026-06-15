@@ -59,7 +59,7 @@ const FileUpload = ({ onSuccess }) => {
       fontSize: '1.1rem'
     }}
   >
-    Drop any document — lectures, textbooks, research papers
+    Drop any document — lectures, textbooks, research papers in PDF format.
   </p>
 </div>
 

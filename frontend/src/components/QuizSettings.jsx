@@ -1,35 +1,29 @@
 import React, { useState } from 'react'
 
 const QuizSettings = ({ onGenerate, loading }) => {
-  const [difficulty, setDifficulty] = useState('standard')
-  const [numQuestions, setNumQuestions] = useState(10)
+  const [selectedPreset, setSelectedPreset] = useState('intermediate') // default Standard
   const [topicFocus, setTopicFocus] = useState('')
 
   const presets = {
-    basic:        { label: 'Basic',      questions: 5,  difficulty: 'basic',    description: 'Easy recall',      emoji: '🌱' },
-    intermediate: { label: 'Standard',   questions: 10, difficulty: 'standard', description: 'Comprehension',    emoji: '⚡' },
-    advanced:     { label: 'Advanced',   questions: 20, difficulty: 'advanced', description: 'Analysis',         emoji: '🔥' },
-    deepdive:     { label: 'Deep Dive',  questions: 30, difficulty: 'advanced', description: 'Expert level',     emoji: '💎' },
-  }
-
-  const difficultyMeta = {
-    basic:    { color: '#34d399', glow: 'rgba(52,211,153,0.35)', label: 'Basic' },
-    standard: { color: '#60a5fa', glow: 'rgba(96,165,250,0.35)', label: 'Standard' },
-    advanced: { color: '#f472b6', glow: 'rgba(244,114,182,0.35)', label: 'Advanced' },
+    basic:        { label: 'Basic',      questions: 10,  difficulty: 'basic',    emoji: '🌱' },
+    intermediate: { label: 'Standard',   questions: 10,  difficulty: 'standard', emoji: '⚡' },
+    advanced:     { label: 'Advanced',   questions: 20,  difficulty: 'advanced', emoji: '🔥' },
+    deepdive:     { label: 'Deep Dive',  questions: 30,  difficulty: 'advanced', emoji: '💎' },
   }
 
   const handlePreset = (presetKey) => {
-    const preset = presets[presetKey]
-    setNumQuestions(preset.questions)
-    setDifficulty(preset.difficulty)
+    setSelectedPreset(presetKey)
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onGenerate({ difficulty, numQuestions, topicFocus })
+    const preset = presets[selectedPreset]
+    onGenerate({ 
+      difficulty: preset.difficulty, 
+      numQuestions: preset.questions, 
+      topicFocus 
+    })
   }
-
-  const dm = difficultyMeta[difficulty]
 
   return (
     <div className="anim-fade-up">
@@ -39,73 +33,38 @@ const QuizSettings = ({ onGenerate, loading }) => {
       </div>
 
       <div className="card">
-        {/* Quick Presets */}
+        {/* Quiz Type Presets */}
         <div className="animate-fade-in-delay-1" style={{ marginBottom:'2rem' }}>
           <p style={{ fontSize:12, fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'rgba(148,163,184,0.6)', marginBottom:'0.75rem' }}>
-            Quick Presets
+            Quiz type
           </p>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',  gap:10 }}>
-            {Object.entries(presets).map(([key, preset]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handlePreset(key)}
-                className="btn btn-muted"
-              >
-                <div style={{ fontSize:20, marginBottom:4 }}>{preset.emoji}</div>
-                <div style={{ fontFamily:'Syne, sans-serif', fontWeight:600, fontSize:13, color:'#e2e8f0', marginBottom:2 }}>
-                  {preset.label}
-                </div>
-                <div style={{ fontSize:11, color:'rgba(148,163,184,0.5)' }}>
-                  {preset.questions}Q
-                </div>
-              </button>
-            ))}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:10 }}>
+            {Object.entries(presets).map(([key, preset]) => {
+              const isActive = selectedPreset === key
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handlePreset(key)}
+                  className={`btn ${isActive ? 'btn-primary' : 'btn-muted'}`}
+                  style={{
+                    transition: 'all 0.2s ease',
+                    transform: isActive ? 'scale(1.02)' : 'scale(1)',
+                    boxShadow: isActive ? '0 0 0 2px var(--accent-purple), 0 4px 12px rgba(0,0,0,0.15)' : 'none'
+                  }}
+                >
+                  <div style={{ fontSize:20, marginBottom:4 }}>{preset.emoji}</div>
+                  <div style={{ fontFamily:'Syne, sans-serif', fontWeight:600, fontSize:13, color: isActive ? '#fff' : '#e2e8f0', marginBottom:2 }}>
+                    {preset.label}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Divider */}
           <div style={{ height:1, background:'rgba(255,255,255,0.02)', marginBottom:'1.25rem' }} />
-
-          {/* Difficulty */}
-          <div className="animate-fade-in-delay-2" style={{ marginBottom:'1.75rem' }}>
-            <p style={{ fontSize:12, fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'rgba(148,163,184,0.6)', marginBottom:'0.75rem' }}>
-              Difficulty
-            </p>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:10 }}>
-              {Object.entries(difficultyMeta).map(([level, meta]) => {
-                const active = difficulty === level
-                return (
-                  <button key={level} type="button" onClick={() => setDifficulty(level)} className={`btn ${active? 'btn-primary':''}`}>
-                    {meta.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Number of questions slider */}
-          <div className="animate-fade-in-delay-2" style={{ marginBottom:'1.75rem' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:'0.75rem' }}>
-              <p style={{ fontSize:12, fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', color:'rgba(148,163,184,0.6)' }}>
-                Questions
-              </p>
-              <span style={{
-                fontFamily:'Syne, sans-serif', fontWeight:700, fontSize:22,
-                background:'linear-gradient(135deg, #a78bfa, #06b6d4)',
-                WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text'
-              }}>
-                {numQuestions}
-              </span>
-            </div>
-            <input type="range" min="3" max="30" value={numQuestions} onChange={(e) => setNumQuestions(parseInt(e.target.value))} style={{ width:'100%' }} />
-            <div style={{ display:'flex', justifyContent:'space-between', marginTop:6 }}>
-              {[3, 10, 20, 30].map(n => (
-                <span key={n} style={{ fontSize:11, color:'rgba(148,163,184,0.35)' }}>{n}</span>
-              ))}
-            </div>
-          </div>
 
           {/* Topic focus */}
           <div className="animate-fade-in-delay-3" style={{ marginBottom:'2rem' }}>
@@ -118,7 +77,6 @@ const QuizSettings = ({ onGenerate, loading }) => {
             </p>
           </div>
 
-          {/* Submit */}
           <button type="submit" disabled={loading} className="btn btn-primary" style={{width:'100%'}}>
             {loading ? 'Generating…' : '✨ Generate Quiz'}
           </button>

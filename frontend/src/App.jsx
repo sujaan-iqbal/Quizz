@@ -137,7 +137,7 @@ function App() {
             WebkitTextFillColor: 'transparent'
           }}
         >
-          QuizGen
+          QuizzMe
         </div>
       </div>
 

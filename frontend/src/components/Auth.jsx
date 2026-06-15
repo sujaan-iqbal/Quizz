@@ -12,9 +12,9 @@ const Auth = ({ onAuthSuccess }) => {
       <div style={{width:'100%',maxWidth:420}}>
         <div style={{textAlign:'center',marginBottom:20}}>
           <div style={{width:56,height:56,margin:'0 auto 12px',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))'}}>
-            <span style={{fontSize:22}}>📚</span>
+            {/* <span style={{fontSize:22}}></span> */}
           </div>
-          <h1 style={{fontSize:28,fontWeight:800,margin:0}}>QuizGen</h1>
+          <h1 style={{fontSize:28,fontWeight:800,margin:0}}>QuizzMe</h1>
           <p style={{color:'var(--text-secondary)',marginTop:6}}>AI-powered PDF quiz generator</p>
         </div>
 
